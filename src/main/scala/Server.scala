@@ -29,26 +29,46 @@ class Server(repo: Repository) {
 
   object nodes {
     case class Nodes(nodes: Seq[Node])
-    case class Node(data: NodeData, classes: String)
-    case class NodeData(id: String, label: String)
+    case class Node(id: String, label: String, kind: String, level: Int)
 
     val ep: Endpoint[Nodes] = get("api" :: "nodes") {
-      val cs = Git.commits(repo).toSeq.map(c => Node(NodeData(c.id, c.message), "commit"))
-      val ts = Git.trees(repo).toSeq.map(t => Node(NodeData(t.id, ""), "tree"))
-      val fs = Git.files(repo).toSeq.map(f => Node(NodeData(f.id, f.content), "file"))
+//      val commits = Git.commits(repo).toSeq.reverse
+//      val ins = commits.foldLeft(Map[String, Int]().withDefaultValue(0)) { (map, c) =>
+//        c.parents.toSeq.foldLeft(map) { (map, p) =>
+//          map.updated(p, map(p) + 1)
+//        }
+//      }
+//      val levels = commits.foldLeft(Map[String, Int]().withDefaultValue(0)) { (map, c) =>
+//          val max = c.parents.map(map).max
+//          map.updated(c.id, )
+//        }
+//      }
+      val hs = Git.heads(repo)
+      val cs = hs.zipWithIndex.flatMap {
+        case (r, i) =>
+          val rn = Node(r.getName, r.getName, "ref", i)
+          Git.commits(repo, r).toSeq.map(c => Node(c.id, c.message, "commit", i))
+//          rn +: cs
+      }.foldLeft(Map[String, Node]()) { (seen, n) =>
+          if (seen.isDefinedAt(n.id)) seen else seen.updated(n.id, n)
+        }
+        .values
+        .toSeq
+      val level = cs.map(_.level).max
+      val ts    = Git.trees(repo).toSeq.map(t => Node(t.id, "", "tree", level + 1))
+      val fs    = Git.files(repo).toSeq.distinct.map(f => Node(f.id, f.content, "file", level + 2))
       Ok(Nodes(cs ++ ts ++ fs))
     }
   }
 
   object edges {
     case class Edges(edges: Seq[Edge])
-    case class Edge(data: EdgeData, classes: String)
-    case class EdgeData(source: String, target: String, label: Option[String] = None)
+    case class Edge(from: String, to: String, label: String, kind: String)
 
     val ep: Endpoint[Edges] = get("api" :: "edges") {
-      val cs = Git.commitEdges(repo).toSeq.map(e => Edge(EdgeData(e.src, e.dst), "commit"))
-      val ts = Git.treeEdges(repo).toSeq.map(e => Edge(EdgeData(e.src, e.dst), "tree"))
-      val fs = Git.fileEdges(repo).toSeq.map(e => Edge(EdgeData(e.src, e.dst, Some(e.path)), "file"))
+      val cs = Git.commitEdges(repo).toSeq.map(e => Edge(e.src, e.dst, "", "commit"))
+      val ts = Git.treeEdges(repo).toSeq.map(e => Edge(e.src, e.dst, "", "tree"))
+      val fs = Git.fileEdges(repo).toSeq.map(e => Edge(e.src, e.dst, e.path, "file"))
       Ok(Edges(cs ++ ts ++ fs))
     }
   }

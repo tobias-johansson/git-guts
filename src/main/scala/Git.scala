@@ -50,9 +50,11 @@ object Git {
     }
   }
 
-  def commits(repo: Repository) =
+  def heads(repo: Repository) = repo.getAllRefs.asScala.values
+
+  def commits(repo: Repository, ref: Ref) =
     for {
-      commit <- revWalk(repo)
+      commit <- revWalk(repo, Seq(ref))
     } yield
       Data.Commit(id = commit.getName,
                   parents = commit.getParents.map(_.getName).toSet,
