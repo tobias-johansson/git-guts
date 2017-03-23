@@ -12,7 +12,6 @@ class Server(repo: Repository) {
 
   object files {
     def file(path: String, contentType: String = "text/html"): Future[Response] = {
-      //      Reader.readAll(Reader.fromFile(new File(path))).map { content =>
       val stream = getClass.getResourceAsStream(path)
       Reader.readAll(Reader.fromStream(stream)).map { content =>
         val rep = Response()
@@ -32,23 +31,11 @@ class Server(repo: Repository) {
     case class Node(id: String, label: String, kind: String, level: Int)
 
     val ep: Endpoint[Nodes] = get("api" :: "nodes") {
-//      val commits = Git.commits(repo).toSeq.reverse
-//      val ins = commits.foldLeft(Map[String, Int]().withDefaultValue(0)) { (map, c) =>
-//        c.parents.toSeq.foldLeft(map) { (map, p) =>
-//          map.updated(p, map(p) + 1)
-//        }
-//      }
-//      val levels = commits.foldLeft(Map[String, Int]().withDefaultValue(0)) { (map, c) =>
-//          val max = c.parents.map(map).max
-//          map.updated(c.id, )
-//        }
-//      }
       val hs = Git.heads(repo)
       val cs = hs.zipWithIndex.flatMap {
         case (r, i) =>
           val rn = Node(r.getName, r.getName, "ref", i)
           Git.commits(repo, r).toSeq.map(c => Node(c.id, c.message, "commit", i))
-//          rn +: cs
       }.foldLeft(Map[String, Node]()) { (seen, n) =>
           if (seen.isDefinedAt(n.id)) seen else seen.updated(n.id, n)
         }
